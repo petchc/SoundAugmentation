@@ -2,6 +2,9 @@
 See vggish_slim.py for more information.
 """
 
+# Save the output of augmentation or not
+AUGMENT_SAVE = False
+
 # Architectural constants.
 NUM_FRAMES = 96  # Frames in input mel-spectrogram patch.
 NUM_BANDS = 64  # Frequency bands in input mel-spectrogram patch.

@@ -3,6 +3,7 @@ from __future__ import print_function
 import soundfile as sf
 import matplotlib.pyplot as plt
 import os
+import shutil
 import argparse
 import numpy as np
 import tensorflow as tf
@@ -26,11 +27,13 @@ import data_transformation
 import Postprocessor
 
 np.set_printoptions(threshold=sys.maxsize)
-tf.compat.v1.set_random_seed(1)
+tf.compat.v1.set_random_seed(21)
 slim = tf.contrib.slim
 
-def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=1,minibatch_size=32,print_cost=True):
+def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=1,minibatch_size=32,print_cost=True,augmentation=False):
    
+    #print('!!!!!!!!!!!!!!!!!!!!!train augmentation: ',augmentation)
+    #print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
     # to keep results consistent (tensorflow seed)
 
     tf.compat.v1.set_random_seed(1)
@@ -53,6 +56,9 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
 
     start = datetime.datetime.now()
     standard_normal = stats.norm()
+
+    if(augmentation == True):
+        prepare_data.create_folder('./audio_aug')
     
     with tf.Graph().as_default(), tf.compat.v1.Session() as sess:
         # Define VGGish.
@@ -87,13 +93,13 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
             xent = tf.nn.sigmoid_cross_entropy_with_logits(
                 logits=logits, labels=labels, name='xent')
             loss = tf.reduce_mean(xent, name='loss_op')
-            tf.summary.scalar('loss', loss)
+            tf.compat.v1.summary.scalar('loss', loss)
 
             
             xent_eval = tf.nn.sigmoid_cross_entropy_with_logits(
                 logits=logits_eval, labels=labels, name='xent_eval')
             loss_eval = tf.reduce_mean(xent_eval, name='loss_op_eval')
-            tf.summary.scalar('loss_eval', loss_eval)
+            tf.compat.v1.summary.scalar('loss_eval', loss_eval)
 
             # We use the same optimizer and hyperparameters as used to train VGGish.
             optimizer = tf.compat.v1.train.AdamOptimizer(
@@ -151,11 +157,15 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
             for minibatch_file in minibatches_files_train:
                
                 # Select a minibatch
-                (minibatch_X, minibatch_Y) =  prepare_data.get_train_data(minibatch_file,sess_ext,input_tensor,output_tensor,pproc,is_train=True)
+                (minibatch_X, minibatch_Y) =  prepare_data.get_train_data(minibatch_file,sess_ext,input_tensor,output_tensor,pproc,is_train=True,seed=seed,is_augment=augmentation)
+                #print('mini_x',np.shape(minibatch_X))
+                #print('mini_y',np.shape(minibatch_Y))
+                
                 num_steps_train ,step_loss_train,pred_tensor_train, _ = sess.run(
                   [global_step_tensor,loss_tensor,prediction_tensor, train_op],
                   feed_dict={features_tensor: minibatch_X, labels_tensor: minibatch_Y})   
                 
+                #print('after tf before print')
 
                 step_auc_train = metrics.roc_auc_score(np.asarray(minibatch_Y), pred_tensor_train, average='micro')
                 step_map_train = metrics.average_precision_score(np.asarray(minibatch_Y), pred_tensor_train, average='micro')
@@ -171,6 +181,12 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
                     step_train +1 ,num_minibatches_train,step_loss_train,step_map_train,step_auc_train,step_d_prime_train))                
 
                 step_train += 1
+
+                if(augmentation == True and vggish_params.AUGMENT_SAVE == False):
+                    shutil.rmtree('./audio_aug')
+                    prepare_data.create_folder('./audio_aug')
+                    #print('delete file step')
+
                 
             print('\n###################')
             print('# Validation loop #')
@@ -189,7 +205,7 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
             for minibatch_file_eval in minibatches_files_eval:
                 # Select a minibatch
                        
-                (minibatch_X_eval, minibatch_Y_eval) =  prepare_data.get_train_data(minibatch_file_eval,sess_ext,input_tensor,output_tensor,pproc,is_train=False)
+                (minibatch_X_eval, minibatch_Y_eval) =  prepare_data.get_train_data(minibatch_file_eval,sess_ext,input_tensor,output_tensor,pproc,is_train=False,seed=seed,is_augment=False)
  
                 num_steps_eval ,step_loss_eval,pred_tensor_eval = sess.run(
                   [global_step_tensor, loss_tensor_eval,prediction_tensor_eval],
@@ -227,7 +243,7 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
                 print("Validation : loss %f, mAP %f, AUC %f, d-prime %f" % (avg_loss_eval,avg_map_eval,avg_auc_eval,avg_d_prime_eval))
                 
                 if((epoch+1)%2 == 0 ):
-                    save_path = saver.save(sess, save_dir + "model_3_epoch_%i.ckpt" % (epoch+1))
+                    save_path = saver.save(sess, save_dir + "model_test_1_epoch_%i.ckpt" % (epoch+1))
                     print("Model saved in path: %s" % save_path)
                 
         plt.plot(np.squeeze(loss_train), 'b', label='Training loss')
@@ -240,7 +256,7 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
         locs, labels = plt.xticks()
         labels = [int(item)+1 for item in locs]
         plt.xticks(locs, labels)
-        plt.savefig("./figures/Loss_per_epoch_3.png")
+        plt.savefig("./figures/Loss_per_epoch_test_1.png")
         plt.show() 
         plt.close()
         
@@ -254,7 +270,7 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
         locs, labels = plt.xticks()
         labels = [int(item)+1 for item in locs]
         plt.xticks(locs, labels)
-        plt.savefig("./figures/mAP_per_epoch_3.png")
+        plt.savefig("./figures/mAP_per_epoch_test_1.png")
         plt.show() 
         plt.close()
         
@@ -268,7 +284,7 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
         locs, labels = plt.xticks()
         labels = [int(item)+1 for item in locs]
         plt.xticks(locs, labels)        
-        plt.savefig("./figures/AUC_per_epoch_3.png")
+        plt.savefig("./figures/AUC_per_epoch_test_1.png")
         plt.show()      
         plt.close()    
 
@@ -282,7 +298,7 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
         locs, labels = plt.xticks()
         labels = [int(item)+1 for item in locs]
         plt.xticks(locs, labels)        
-        plt.savefig("./figures/d_prime_per_epoch_3.png")
+        plt.savefig("./figures/d_prime_per_epoch_test_1.png")
         plt.show()      
         plt.close()                                             
         
@@ -295,7 +311,7 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
         print('###################')
 
         
-        data, sampleratde = sf.read(Path(files_name_train[0])) 
+        data, sampleratde = sf.read(Path(files_name_eval[0])) 
 
         wave_array_example_pre = data_transformation.waveform_to_examples(data,sampleratde,display=0)
 
@@ -396,7 +412,7 @@ def test(X_test,Y_test,checkpoint_dir,checkpoint_path,label_columns_name,minibat
         for minibatch_file_test in minibatches_files_test:
             # Select a minibatch
                     
-            (minibatch_X_test, minibatch_Y_test) =  prepare_data.get_train_data(minibatch_file_test,sess_ext,input_tensor,output_tensor,pproc,is_train=False)
+            (minibatch_X_test, minibatch_Y_test) =  prepare_data.get_train_data(minibatch_file_test,sess_ext,input_tensor,output_tensor,pproc,is_train=False,seed=seed,is_augment=False)
 
             num_steps_test ,step_loss_test,pred_tensor_test = sess.run(
                 [global_step_tensor, loss_tensor_test,prediction_tensor_test],
@@ -428,14 +444,17 @@ def test(X_test,Y_test,checkpoint_dir,checkpoint_path,label_columns_name,minibat
             print("Testing : loss %f, mAP %f, AUC %f, d-prime %f" % (avg_loss_test,avg_map_test,avg_auc_test,avg_d_prime_test))
     
     sum_of_labels_test = Y_test.sum(axis=0)
-    index = sum_of_labels_test.argsort()[-10:][::-1]
+
+    #top 10 classes
+    #index = sum_of_labels_test.argsort()[-10:][::-1]
+    index = avg_map_class_test.argsort()[-10:][::-1]
 
     fig = plt.figure(figsize=(10,5))
     ax1 = fig.add_subplot(111)
     ax1.bar(label_columns_name[index],sum_of_labels_test[index],alpha=0.55,color='C0',label='Audio files')
     ax1.set_ylabel('Number of audio files')
     ax1.set_title('The number of audio files and mAP of top 10 classes')  
-    ax1.set_xticklabels(labels=label_columns_name[index],rotation=25) 
+    ax1.set_xticklabels(labels=label_columns_name[index],rotation=35) 
 
     ax2 = ax1.twinx()
     ax2.stem(avg_map_class_test[index],linefmt='r-', markerfmt='ro',basefmt='k-',use_line_collection=True,label='mAP')
@@ -447,8 +466,45 @@ def test(X_test,Y_test,checkpoint_dir,checkpoint_path,label_columns_name,minibat
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax2.legend(lines + lines2, labels + labels2, loc=0)
     plt.tight_layout()
-    plt.savefig("./figures/map10_class_3.png")
+    plt.savefig("./figures/map_top_10_class_model_base_with_augmented_2.png")
     fig.show()      
+    plt.close()
+
+    print('---Top 10 result---')
+    print(label_columns_name[index])
+    print(sum_of_labels_test[index])
+    print(avg_map_class_test[index])
+
+    #last 10 classes 
+
+    #index = sum_of_labels_test.argsort()[0:10][::-1]
+    index = avg_map_class_test.argsort()[0:10][::-1]
+
+    fig = plt.figure(figsize=(10,5))
+    ax1 = fig.add_subplot(111)
+    ax1.bar(label_columns_name[index],sum_of_labels_test[index],alpha=0.55,color='C0',label='Audio files')
+    ax1.set_ylabel('Number of audio files')
+    ax1.set_title('The number of audio files and mAP of last 10 classes')  
+    ax1.set_xticklabels(labels=label_columns_name[index],rotation=35) 
+
+    ax2 = ax1.twinx()
+    ax2.stem(avg_map_class_test[index],linefmt='r-', markerfmt='ro',basefmt='k-',use_line_collection=True,label='mAP')
+    ax2.set_ylabel('mAP')
+    ax2.set_xlabel('Classes')
+    ax2.set_ylim(bottom=0.,top=1.0)
+
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines + lines2, labels + labels2, loc=0)
+    plt.tight_layout()
+    plt.savefig("./figures/map_last_10_class_model_base_with_augmented_2.png")
+    fig.show() 
+    plt.close()
+
+    print('---Last 10 result---')
+    print(label_columns_name[index])
+    print(sum_of_labels_test[index])
+    print(avg_map_class_test[index])
 
 def inference(file_path,checkpoint_dir,checkpoint_path):
     
@@ -498,19 +554,22 @@ def inference(file_path,checkpoint_dir,checkpoint_path):
         print('#  Inference loop  #')
         print('###################')
 
-        data, sampleratde = sf.read(Path(file_path))
-        wave_array_example_pre = data_transformation.waveform_to_examples(data,sampleratde,display=0)
+        try:
+            data, sampleratde = sf.read(Path(file_path))
+            wave_array_example_pre = data_transformation.waveform_to_examples(data,sampleratde,display=0)
         
-        [embedding_batch] = sess_ext.run([output_tensor],
+            [embedding_batch] = sess_ext.run([output_tensor],
                 feed_dict={input_tensor: wave_array_example_pre})
         
-        wave_arrays = pproc.postprocess(embedding_batch)
+            wave_arrays = pproc.postprocess(embedding_batch)
 
-        pred_inf_restore = sess.run(prediction_tensor_inf, feed_dict={features_tensor_inf: wave_arrays})
+            pred_inf_restore = sess.run(prediction_tensor_inf, feed_dict={features_tensor_inf: wave_arrays})
+            return pred_inf_restore 
+
+        except:
+            print('This program does not support the input file format or file does not found ')
        
-    return pred_inf_restore    
-
-    
+          
 if __name__ == '__main__':
     # Arguments
     parser = argparse.ArgumentParser(description="")
@@ -519,11 +578,12 @@ if __name__ == '__main__':
     parser_train = subparsers.add_parser('train')
     parser_train.add_argument('--csv_dir', type=str)
     parser_train.add_argument('--dataset_train_dir', type=str)
-    parser_train.add_argument('--dataset_eval_dir', type=str)
+    #parser_train.add_argument('--dataset_eval_dir', type=str)
     parser_train.add_argument('--vggish_checkpoint_dir', type=str)
     parser_train.add_argument('--save_checkpoint_dir', type=str)
     parser_train.add_argument('--epoch',type=int)
     parser_train.add_argument('--batch_size',type=int)
+    parser_train.add_argument('--augmentation',action='store_true')
     
     parser_test = subparsers.add_parser('test')
     parser_test.add_argument('--csv_dir', type=str)
@@ -532,6 +592,13 @@ if __name__ == '__main__':
     parser_test.add_argument('--checkpoint_path', type=str)
     parser_test.add_argument('--batch_size',type=int)
 
+    parser_test_augmented = subparsers.add_parser('test_augmented')
+    parser_test_augmented.add_argument('--csv_dir', type=str)
+    parser_test_augmented.add_argument('--dataset_test_dir', type=str)
+    parser_test_augmented.add_argument('--vggish_checkpoint_dir', type=str)
+    parser_test_augmented.add_argument('--checkpoint_path', type=str)
+    parser_test_augmented.add_argument('--batch_size',type=int)
+
     parser_inf = subparsers.add_parser('inference')
     parser_inf.add_argument('--csv_dir', type=str)
     parser_inf.add_argument('--file_path', type=str)
@@ -539,12 +606,17 @@ if __name__ == '__main__':
     parser_inf.add_argument('--checkpoint_path', type=str)
 
     args = parser.parse_args()
+  
     
     if args.mode == "train":
-        print('Training mode')
+        if args.augmentation == True:
+            print('Training mode - Augmentation')
+        elif args.augmentation == False:
+            print('Training mode - Normal')
+
         files_name_train,labels_train,files_name_eval,labels_eval = prepare_data.get_filenames_and_labels(args)
-        output_tensor_test,sess_graph = train(files_name_train[0:20000], labels_train[0:20000], files_name_eval, labels_eval,args.vggish_checkpoint_dir,
-             args.save_checkpoint_dir,num_epochs=args.epoch,minibatch_size=args.batch_size,print_cost=True)   
+        output_tensor_test,sess_graph = train(files_name_train, labels_train, files_name_eval, labels_eval, args.vggish_checkpoint_dir,
+             args.save_checkpoint_dir,num_epochs=args.epoch,minibatch_size=args.batch_size,print_cost=True,augmentation=args.augmentation)   
         
         np.set_printoptions(precision=4)
         for i in range(len(output_tensor_test)):
@@ -557,7 +629,14 @@ if __name__ == '__main__':
         print('Testing mode')
         files_name_test,labels_test,label_columns_name = prepare_data.get_filenames_and_labels_test(args)
         test(files_name_test, labels_test,args.vggish_checkpoint_dir,args.checkpoint_path,label_columns_name,minibatch_size=args.batch_size,print_cost=True)
-        
+    
+    elif args.mode =="test_augmented":
+        print('Testing mode with augmented data')    
+        files_name_test,labels_test,label_columns_name = prepare_data.get_filenames_and_labels_test_augment(args)
+        #print(files_name_test[0])
+        #print(np.where(labels_test[0]==1))
+        test(files_name_test, labels_test,args.vggish_checkpoint_dir,args.checkpoint_path,label_columns_name,minibatch_size=args.batch_size,print_cost=True)
+
     elif args.mode == "inference":
         print('Inference mode')
         
@@ -565,12 +644,15 @@ if __name__ == '__main__':
         output_tensor_inf = inference(args.file_path,args.vggish_checkpoint_dir,args.checkpoint_path)
 
         np.set_printoptions(precision=4)
-        for i in range(len(output_tensor_inf)):
-            print('Second: ',i)
-            print('Top 10 prob labels name : ',label_columns[output_tensor_inf[i].argsort()[-10:][::-1]])
-            print('Top 10 prob labels id   : ',output_tensor_inf[i].argsort()[-10:][::-1])
-            print('Raw probability values  : ',output_tensor_inf[i][output_tensor_inf[i].argsort()[-10:][::-1]])
-            print('-------------------------------------------')
+        try:
+            for i in range(len(output_tensor_inf)):
+                print('Second: ',i)
+                print('Top 10 prob labels name : ',label_columns[output_tensor_inf[i].argsort()[-10:][::-1]])
+                print('Top 10 prob labels id   : ',output_tensor_inf[i].argsort()[-10:][::-1])
+                print('Raw probability values  : ',output_tensor_inf[i][output_tensor_inf[i].argsort()[-10:][::-1]])
+                print('-------------------------------------------')
+        except:
+            pass
 
     else:
         print("Please complete the input parameter")

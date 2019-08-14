@@ -31,7 +31,7 @@ def define_vggish_slim(training=False):
  # - All max-pools are 2x2 with stride 2 and SAME padding.
  with slim.arg_scope([slim.conv2d, slim.fully_connected],
                       weights_initializer=tf.truncated_normal_initializer(
-                          stddev=vggish_params.INIT_STDDEV,seed=3),
+                          stddev=vggish_params.INIT_STDDEV,seed=tf.compat.v1.set_random_seed(21)),
                       biases_initializer=tf.zeros_initializer(),
                       activation_fn=tf.nn.relu,
                       trainable=training), \
@@ -39,7 +39,7 @@ def define_vggish_slim(training=False):
                       kernel_size=[3, 3], stride=1, padding='SAME'), \
        slim.arg_scope([slim.max_pool2d],
                       kernel_size=[2, 2], stride=2, padding='SAME'), \
-       tf.variable_scope('vggish'):
+       tf.compat.v1.variable_scope ('vggish'):
     # Input: a batch of 2-D log-mel-spectrogram patches.
     features = tf.compat.v1.placeholder(
         tf.float32, shape=(None, vggish_params.NUM_FRAMES, vggish_params.NUM_BANDS),
@@ -126,7 +126,7 @@ def define_audio_slim(training=False,is_reuse=None):
 
  with slim.arg_scope([slim.fully_connected],
                       weights_initializer=tf.truncated_normal_initializer(
-                          stddev=vggish_params.INIT_STDDEV),
+                          stddev=vggish_params.INIT_STDDEV,seed=tf.compat.v1.set_random_seed(21)),
                       biases_initializer=tf.zeros_initializer(),
                       activation_fn=tf.nn.relu,
                       reuse=is_reuse,
