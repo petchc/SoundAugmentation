@@ -27,7 +27,7 @@ import data_transformation
 import Postprocessor
 
 np.set_printoptions(threshold=sys.maxsize)
-tf.compat.v1.set_random_seed(21)
+tf.compat.v1.set_random_seed(41)
 slim = tf.contrib.slim
 
 def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=1,minibatch_size=32,print_cost=True,augmentation=False):
@@ -36,8 +36,8 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
     #print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
     # to keep results consistent (tensorflow seed)
 
-    tf.compat.v1.set_random_seed(1)
-    seed = 3
+    tf.compat.v1.set_random_seed(41)
+    seed = 43
 
     loss_train=[]
     map_train=[]
@@ -56,6 +56,9 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
 
     start = datetime.datetime.now()
     standard_normal = stats.norm()
+
+    best_loss = 999
+    stopping_step = 0
 
     if(augmentation == True):
         prepare_data.create_folder('./audio_aug')
@@ -233,30 +236,43 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
                 map_train.append(avg_map_train)
                 auc_train.append(avg_auc_train)
                 d_prime_train.append(avg_d_prime_train)
-                print("Training   : loss %f, mAP %f, AUC %f, d-prime %f" % (avg_loss_train,avg_map_train,avg_auc_train,avg_d_prime_train))
+                print("Training   : loss %.5f, mAP %.5f, AUC %.5f, d-prime %.5f" % (avg_loss_train,avg_map_train,avg_auc_train,avg_d_prime_train))
 
                 
                 loss_eval_list.append(avg_loss_eval)
                 map_eval.append(avg_map_eval)
                 auc_eval.append(avg_auc_eval)  
                 d_prime_eval.append(avg_d_prime_eval)                                             
-                print("Validation : loss %f, mAP %f, AUC %f, d-prime %f" % (avg_loss_eval,avg_map_eval,avg_auc_eval,avg_d_prime_eval))
+                print("Validation : loss %.5f, mAP %.5f, AUC %.5f, d-prime %.5f" % (avg_loss_eval,avg_map_eval,avg_auc_eval,avg_d_prime_eval))
                 
-                if((epoch+1)%2 == 0 ):
-                    save_path = saver.save(sess, save_dir + "model_test_1_epoch_%i.ckpt" % (epoch+1))
-                    print("Model saved in path: %s" % save_path)
+                if (avg_loss_eval < best_loss):
+                    stopping_step = 0
+                    best_loss = avg_loss_eval
+                    save_sess = sess
+                else:
+                    stopping_step += 1
+                if stopping_step >= 3:
+                    print("\nEarly stopping is trigger at epoch: {} loss:{:.5f}".format(epoch+1,avg_loss_eval))
+                    print("Model is convergence at epoch: {}".format(epoch-2))
+                    break
+                #if((epoch+1)%2 == 0 ):
+
+                save_path = saver.save(sess, save_dir + "model_aug_conv_3_epoch_%i.ckpt" % (epoch+1))
+                print("Model saved in path: %s" % save_path)
                 
+                
+
         plt.plot(np.squeeze(loss_train), 'b', label='Training loss')
         plt.plot(np.squeeze(loss_eval_list), 'r', label='Validation loss')
         plt.ylabel('Loss')
         plt.xlabel('Epochs')
         plt.title('The loss of the training and validation dataset')  
         plt.legend()
-        plt.xlim([0,9])
+        plt.xlim([0,epoch-3])
         locs, labels = plt.xticks()
         labels = [int(item)+1 for item in locs]
         plt.xticks(locs, labels)
-        plt.savefig("./figures/Loss_per_epoch_test_1.png")
+        plt.savefig("./figures/Loss_per_epoch_aug_conv_3.png")
         plt.show() 
         plt.close()
         
@@ -266,11 +282,11 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
         plt.xlabel('Epochs')
         plt.title('The mean average precision\nof the training and validation dataset')  
         plt.legend()
-        plt.xlim([0,9])
+        plt.xlim([0,epoch-3])
         locs, labels = plt.xticks()
         labels = [int(item)+1 for item in locs]
         plt.xticks(locs, labels)
-        plt.savefig("./figures/mAP_per_epoch_test_1.png")
+        plt.savefig("./figures/mAP_per_epoch_aug_conv_3.png")
         plt.show() 
         plt.close()
         
@@ -280,11 +296,11 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
         plt.xlabel('Epochs')
         plt.title('The area under the curve\nof the training and validation dataset')  
         plt.legend()
-        plt.xlim([0,9])
+        plt.xlim([0,epoch-3])
         locs, labels = plt.xticks()
         labels = [int(item)+1 for item in locs]
         plt.xticks(locs, labels)        
-        plt.savefig("./figures/AUC_per_epoch_test_1.png")
+        plt.savefig("./figures/AUC_per_epoch_aug_conv_3.png")
         plt.show()      
         plt.close()    
 
@@ -294,11 +310,11 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
         plt.xlabel('Epochs')
         plt.title('The d-prime of the training and validation dataset')  
         plt.legend()
-        plt.xlim([0,9])
+        plt.xlim([0,epoch-3])
         locs, labels = plt.xticks()
         labels = [int(item)+1 for item in locs]
         plt.xticks(locs, labels)        
-        plt.savefig("./figures/d_prime_per_epoch_test_1.png")
+        plt.savefig("./figures/d_prime_per_epoch_aug_conv_3.png")
         plt.show()      
         plt.close()                                             
         
@@ -320,6 +336,8 @@ def train(X_train, Y_train, X_eval, Y_eval, checkpoint_dir,save_dir, num_epochs=
                 feed_dict={input_tensor: wave_array_example_pre})
         
         wave_arrays = pproc.postprocess(embedding_batch)
+
+        sess = save_sess
 
         pred_test = sess.run(prediction_tensor_eval, feed_dict={features_tensor_eval: wave_arrays})
         
@@ -441,7 +459,7 @@ def test(X_test,Y_test,checkpoint_dir,checkpoint_path,label_columns_name,minibat
             print('###################')
             print("------Summary------" )
             print('###################')       
-            print("Testing : loss %f, mAP %f, AUC %f, d-prime %f" % (avg_loss_test,avg_map_test,avg_auc_test,avg_d_prime_test))
+            print("Testing : loss %.5f, mAP %.5f, AUC %.5f, d-prime %.5f" % (avg_loss_test,avg_map_test,avg_auc_test,avg_d_prime_test))
     
     sum_of_labels_test = Y_test.sum(axis=0)
 
@@ -451,6 +469,7 @@ def test(X_test,Y_test,checkpoint_dir,checkpoint_path,label_columns_name,minibat
 
     fig = plt.figure(figsize=(10,5))
     ax1 = fig.add_subplot(111)
+    ax1.set_ylim(0,6000)
     ax1.bar(label_columns_name[index],sum_of_labels_test[index],alpha=0.55,color='C0',label='Audio files')
     ax1.set_ylabel('Number of audio files')
     ax1.set_title('The number of audio files and mAP of top 10 classes')  
@@ -466,10 +485,12 @@ def test(X_test,Y_test,checkpoint_dir,checkpoint_path,label_columns_name,minibat
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax2.legend(lines + lines2, labels + labels2, loc=0)
     plt.tight_layout()
-    plt.savefig("./figures/map_top_10_class_model_base_with_augmented_2.png")
+    plt.savefig("./figures/map_top_10_class_model_aug_conv_1_augmented.png")
+    #plt.savefig("./figures/map_top_10_class_model_aug_conv_1_augmented.png")
     fig.show()      
     plt.close()
 
+    np.set_printoptions(precision=5)
     print('---Top 10 result---')
     print(label_columns_name[index])
     print(sum_of_labels_test[index])
@@ -482,6 +503,7 @@ def test(X_test,Y_test,checkpoint_dir,checkpoint_path,label_columns_name,minibat
 
     fig = plt.figure(figsize=(10,5))
     ax1 = fig.add_subplot(111)
+    ax1.set_ylim(0,70)
     ax1.bar(label_columns_name[index],sum_of_labels_test[index],alpha=0.55,color='C0',label='Audio files')
     ax1.set_ylabel('Number of audio files')
     ax1.set_title('The number of audio files and mAP of last 10 classes')  
@@ -497,7 +519,7 @@ def test(X_test,Y_test,checkpoint_dir,checkpoint_path,label_columns_name,minibat
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax2.legend(lines + lines2, labels + labels2, loc=0)
     plt.tight_layout()
-    plt.savefig("./figures/map_last_10_class_model_base_with_augmented_2.png")
+    plt.savefig("./figures/map_last_10_class_model_aug_conv_1_augmented.png")
     fig.show() 
     plt.close()
 
@@ -615,10 +637,11 @@ if __name__ == '__main__':
             print('Training mode - Normal')
 
         files_name_train,labels_train,files_name_eval,labels_eval = prepare_data.get_filenames_and_labels(args)
+        #output_tensor_test,sess_graph = train(files_name_train[0:5], labels_train[0:5], files_name_eval[0:5], labels_eval[0:5], args.vggish_checkpoint_dir,
         output_tensor_test,sess_graph = train(files_name_train, labels_train, files_name_eval, labels_eval, args.vggish_checkpoint_dir,
              args.save_checkpoint_dir,num_epochs=args.epoch,minibatch_size=args.batch_size,print_cost=True,augmentation=args.augmentation)   
         
-        np.set_printoptions(precision=4)
+        np.set_printoptions(precision=5)
         for i in range(len(output_tensor_test)):
             print('Second: ',i)
             print('Top 10 prob labels:    ',output_tensor_test[i].argsort()[-10:][::-1])
@@ -643,7 +666,7 @@ if __name__ == '__main__':
         label_columns = prepare_data.get_labels_indices(args.csv_dir)
         output_tensor_inf = inference(args.file_path,args.vggish_checkpoint_dir,args.checkpoint_path)
 
-        np.set_printoptions(precision=4)
+        np.set_printoptions(precision=5)
         try:
             for i in range(len(output_tensor_inf)):
                 print('Second: ',i)

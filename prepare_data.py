@@ -268,7 +268,7 @@ def data_augmentation(file_name,seed):
     release_rd = rd.randint(10, 250)
     decays_rd =rd.uniform(0.5,1)
     format_type = rd.randint(0,2)
-    #libro_parm = rd.uniform(0.8,1.5)
+    libro_parm = rd.uniform(0.8,1.5)
 
 
     #print(volume_rd)

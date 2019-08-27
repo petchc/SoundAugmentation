@@ -1,8 +1,7 @@
 """Global parameters for the VGGish model.
 See vggish_slim.py for more information.
 """
-
-# Save the output of augmentation or not
+# Save augmentation files
 AUGMENT_SAVE = False
 
 # Architectural constants.

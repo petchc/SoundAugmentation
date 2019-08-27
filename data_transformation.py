@@ -286,13 +286,16 @@ def waveform_to_examples(data, sample_rate, display):
     #data = data/32768.0 #normalise
     #print(np.min(data))
     
+    #test remove!!
+    
     if len(data.shape) > 1:
         #print(data.shape)
         data = np.mean(data, axis=1)
 
     if sample_rate != vggish_params.SAMPLE_RATE:
         data = resampy.resample(data, sample_rate, vggish_params.SAMPLE_RATE)    
-        
+    
+
     log_mel = log_mel_spectrogram(
           data,display,
           audio_sample_rate=vggish_params.SAMPLE_RATE,

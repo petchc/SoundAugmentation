@@ -31,7 +31,7 @@ def define_vggish_slim(training=False):
  # - All max-pools are 2x2 with stride 2 and SAME padding.
  with slim.arg_scope([slim.conv2d, slim.fully_connected],
                       weights_initializer=tf.truncated_normal_initializer(
-                          stddev=vggish_params.INIT_STDDEV,seed=tf.compat.v1.set_random_seed(21)),
+                          stddev=vggish_params.INIT_STDDEV,seed=tf.compat.v1.set_random_seed(41)),
                       biases_initializer=tf.zeros_initializer(),
                       activation_fn=tf.nn.relu,
                       trainable=training), \
@@ -126,7 +126,7 @@ def define_audio_slim(training=False,is_reuse=None):
 
  with slim.arg_scope([slim.fully_connected],
                       weights_initializer=tf.truncated_normal_initializer(
-                          stddev=vggish_params.INIT_STDDEV,seed=tf.compat.v1.set_random_seed(21)),
+                          stddev=vggish_params.INIT_STDDEV,seed=tf.compat.v1.set_random_seed(41)),
                       biases_initializer=tf.zeros_initializer(),
                       activation_fn=tf.nn.relu,
                       reuse=is_reuse,
