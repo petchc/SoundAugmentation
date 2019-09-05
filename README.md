@@ -43,3 +43,6 @@ This is example of training command. You can change the directory to your own di
 ## Inference command
 This is example of inference command for prediction the labels of audio file.
 ```python3 main.py inference --csv_dir=/export/home/2368985c/MSc_Project_Sound_Augmentation/csv_file/ --file_path=/export/home/2368985c/MSc_Project_Sound_Augmentation/audio_eval_tmp/-/0/P/-0p7hKXZ1ww_30000_40000.flac --vggish_checkpoint_dir=/export/home/2368985c/MSc_Project_Sound_Augmentation/SoundAugmentation/vggish_ckpt/ --checkpoint_path=/export/home/2368985c/MSc_Project_Sound_Augmentation/SoundAugmentation/tmp/model_aug_conv_3_epoch_18.ckpt```
+
+PS. Below command use to alter folder name to upper case (Linux command)
+```find path/to/dir -type d | awk -F"/" '$NF != toupper($NF) {l = n = $0; sub($NF "$", toupper($NF), n); print "mv " l " " n;}' | tac | sh```
