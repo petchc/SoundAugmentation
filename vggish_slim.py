@@ -1,7 +1,5 @@
 import tensorflow as tf
 import vggish_params
-#from contextlib import contextmanager
-#import astroid
 
 slim = tf.contrib.slim
 
@@ -29,6 +27,8 @@ def define_vggish_slim(training=False):
  # - All activations are ReLU.
  # - All convolutions are 3x3 with stride 1 and SAME padding.
  # - All max-pools are 2x2 with stride 2 and SAME padding.
+ #ref :https://github.com/tensorflow/models/blob/master/research/audioset/vggish/vggish_slim.py
+ 
  with slim.arg_scope([slim.conv2d, slim.fully_connected],
                       weights_initializer=tf.truncated_normal_initializer(
                           stddev=vggish_params.INIT_STDDEV,seed=tf.compat.v1.set_random_seed(41)),
@@ -50,22 +50,18 @@ def define_vggish_slim(training=False):
     # The VGG stack of alternating convolutions and max-pools.
     net = slim.conv2d(net, 64, scope='conv1')
     net = slim.max_pool2d(net, scope='pool1')
-    #net = slim.batch_norm(net)
     net = slim.conv2d(net, 128, scope='conv2')
     net = slim.max_pool2d(net, scope='pool2')
-    #net = slim.batch_norm(net)
     net = slim.repeat(net, 2, slim.conv2d, 256, scope='conv3')
     net = slim.max_pool2d(net, scope='pool3')
-    #net = slim.batch_norm(net)
     net = slim.repeat(net, 2, slim.conv2d, 512, scope='conv4')
     net = slim.max_pool2d(net, scope='pool4')
-    #net = slim.batch_norm(net)
 
     # Flatten before entering fully-connected layers
     net = slim.flatten(net)
     net = slim.repeat(net, 2, slim.fully_connected, 4096, scope='fc1')
+    
     # The embedding layer.
-
     net = slim.fully_connected(net, vggish_params.EMBEDDING_SIZE, scope='fc2')
      
     return tf.identity(net, name='embedding')
@@ -100,29 +96,7 @@ def load_vggish_slim_checkpoint(session, checkpoint_path):
 
 def define_audio_slim(training=False,is_reuse=None):
 
- """
-      Defines the VGGish TensorFlow model.
-      All ops are created in the current default graph, under the scope 'vggish/'.
-      The input is a placeholder named 'vggish/input_features' of type float32 and
-      shape [batch_size, num_frames, num_bands] where batch_size is variable and
-      num_frames and num_bands are constants, and [num_frames, num_bands] represents
-      a log-mel-scale spectrogram patch covering num_bands frequency bands and
-      num_frames time frames (where each frame step is usually 10ms). This is
-      produced by computing the stabilized log(mel-spectrogram + params.LOG_OFFSET).
-      The output is an op named 'vggish/embedding' which produces the activations of
-      a 128-D embedding layer, which is usually the penultimate layer when used as
-      part of a full model with a final classifier layer.
-      Args:
-        training: If true, all parameters are marked trainable.
-      Returns:
-        The op 'vggish/embeddings'.
- """
- # Defaults:
- # - All weights are initialized to N(0, INIT_STDDEV).
- # - All biases are initialized to 0.
- # - All activations are ReLU.
- # - All convolutions are 3x3 with stride 1 and SAME padding.
- # - All max-pools are 2x2 with stride 2 and SAME padding.
+ # Define classification and logits layer
 
  with slim.arg_scope([slim.fully_connected],
                       weights_initializer=tf.truncated_normal_initializer(
@@ -130,39 +104,21 @@ def define_audio_slim(training=False,is_reuse=None):
                       biases_initializer=tf.zeros_initializer(),
                       activation_fn=tf.nn.relu,
                       reuse=is_reuse,
-                      #activation_fn=tf.nn.tanh,
                       trainable=training), \
         tf.compat.v1.variable_scope('audio'):
         
-    # Input: a batch of 2-D log-mel-spectrogram patches.
+
         vgg_input = tf.compat.v1.placeholder(
             tf.float32, shape=(None, vggish_params.EMBEDDING_SIZE),name='audio_input_features') 
         
-        
+        # Classification layer
         num_units = 1024
         fc = slim.fully_connected(vgg_input, num_units,scope='f1') 
-        #net = slim.batch_norm(net,scope='norm1',is_training=training,reuse=is_reuse) 
-        #net = slim.dropout(net, 0.5,scope='drop1',is_training=training,seed=1)
-        
-        #net = slim.fully_connected(net, num_units,scope='f2') 
-        #net = slim.batch_norm(net,scope='norm2',is_training=training,reuse=is_reuse) 
-        #net = slim.dropout(net, 0.5,scope='drop2',is_training=training,seed=1)
-        
-        
-        #net = slim.fully_connected(net, num_units,scope='f3') 
-        #net = slim.batch_norm(net,scope='norm3',is_training=training,reuse=is_reuse) 
-        #fc = slim.dropout(net, 0.5,scope='drop3',is_training=training,seed=1)
-    
-        #fc = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
-        
-        
-        
-        
+     
+        # Logits layer
         logits = slim.fully_connected(
               fc, vggish_params._NUM_CLASSES, activation_fn=None, scope='logits')
-           
-        #logits = slim.fully_connected(
-        #      fc, 3, activation_fn=None, scope='logits')
+        
 
         return logits
 

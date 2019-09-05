@@ -9,13 +9,11 @@ import data_transformation
 import random as rd
 from random import shuffle
 import ffmpeg
-import librosa
 
 def split_and_label(rows_labels, label_mapping ,n_classes):
-    '''
-    Retrieves a list of all the relevant classes. This is necessary due to 
-    the multi-labeling of the initial csv file.
-    '''
+    
+    # retrieves a list of all the relevant classes and split it into individual label.
+    
     row_labels_list = []
     for row in rows_labels:
         row_labels = row.split(',')
@@ -26,13 +24,12 @@ def split_and_label(rows_labels, label_mapping ,n_classes):
         row_labels_list.append(labels_array)
     return row_labels_list
 
-
-
-#Map filename to local path and make labels to one-hot encoding
-
 def map_dataset(df_csv,file_path,label_column_value,num_classes):
+
     
-    n_classes = num_classes # 527
+    # map filename to local path and encode the labels to one-hot encoding for the baseline model
+       
+    n_classes = num_classes 
     input_path = file_path 
     df_map = pd.DataFrame()
  
@@ -50,7 +47,11 @@ def map_dataset(df_csv,file_path,label_column_value,num_classes):
 
 def map_dataset_augment(df_csv,file_path,label_column_value,num_classes):
     
-    n_classes = num_classes # 527
+    
+    # map filename to local path and encode the labels to one-hot encoding for data augmentation model
+      
+
+    n_classes = num_classes 
     input_path = file_path 
     df_map = pd.DataFrame()
  
@@ -67,6 +68,10 @@ def map_dataset_augment(df_csv,file_path,label_column_value,num_classes):
 
 def get_labels_indices(csv_dir):
 
+    
+    # get all classes name 
+    
+
     column_df = pd.read_csv(Path(csv_dir + 'class_labels_indices.csv'),usecols=["display_name"])
 
     label_columns_name = column_df.display_name.values
@@ -77,6 +82,8 @@ def get_labels_indices(csv_dir):
 
 def get_filenames_and_labels_test(args):
 
+    # get filenames with file location and the associated labels for test with original test set
+    
     num_classes = 527
 
     csv_dir = args.csv_dir
@@ -87,13 +94,9 @@ def get_filenames_and_labels_test(args):
 
     column_df = pd.read_csv(Path(csv_dir + 'class_labels_indices.csv'),usecols=["mid","display_name"])
 
-    # Retrieve list of labels
     label_columns = column_df.mid.values
     
-    #column_df_test = pd.read_csv(Projec_Dir + '/class_labels_indices.csv',usecols=["display_name"])
-    
     label_columns_name = column_df.display_name.values
-
 
     print('Preprocessing for dataset location and labels...')
 
@@ -106,6 +109,8 @@ def get_filenames_and_labels_test(args):
 
 def get_filenames_and_labels_test_augment(args):
 
+    # get filenames with file location and the associated labels for test with augmented test set
+    
     num_classes = 527
 
     csv_dir = args.csv_dir
@@ -116,13 +121,9 @@ def get_filenames_and_labels_test_augment(args):
 
     column_df = pd.read_csv(Path(csv_dir + 'class_labels_indices.csv'),usecols=["mid","display_name"])
 
-    # Retrieve list of labels
     label_columns = column_df.mid.values
     
-    #column_df_test = pd.read_csv(Projec_Dir + '/class_labels_indices.csv',usecols=["display_name"])
-    
     label_columns_name = column_df.display_name.values
-
 
     print('Preprocessing for dataset location and labels...')
 
@@ -135,95 +136,70 @@ def get_filenames_and_labels_test_augment(args):
 
 def get_filenames_and_labels(args):
 
+    # get filenames with file location and the associated labels for training the model
+    
     num_classes = 527
 
     csv_dir = args.csv_dir
     dataset_train_dir = args.dataset_train_dir
-    #dataset_eval_dir = args.dataset_eval_dir
-
-    #print(csv_dir)
-    #print(dataset_train_dir)
-    #print(dataset_eval_dir)
 
     df_train = pd.read_csv(Path(csv_dir + 'balanced_train_segments.csv'),sep=',',skiprows=2,
                 engine='python',quotechar = '"',skipinitialspace = True,)
 
-    #df_eval = pd.read_csv(Path(csv_dir  + 'eval_segments.csv'),sep=',',skiprows=2,
-    #            engine='python',quotechar = '"',skipinitialspace = True,)
-
     column_df = pd.read_csv(Path(csv_dir + 'class_labels_indices.csv'),usecols=["mid"])
 
-    # Retrieve list of labels
     label_columns = column_df.mid.values
     
-    #print(df_train)
-    #print(df_eval)
     print('Preprocessing for dataset location and labels...')
 
     df_train_map = map_dataset(df_train,dataset_train_dir,column_df.mid.values,num_classes)
-    #df_eval_map = map_dataset(df_eval,dataset_eval_dir,column_df.mid.values,num_classes)
-    
-    #df_train_map = map_dataset(df_train,'C:\\Users\\pthad\\Downloads\\audio_train\\',column_df.mid.values,num_classes)
-    #df_eval_map = map_dataset(df_eval,'C:\\Users\\pthad\\Downloads\\audio_eval\\',column_df.mid.values,num_classes)
 
     files_name_train_all = df_train_map['Fname'].values
     labels_train_all = df_train_map.loc[:,label_columns].values
 
     np.random.seed(1)
     permutation = list(np.random.permutation(files_name_train_all.shape[0]))
-
-    
-    #print(permutation)
-    #print(np.shape(permutation))
-
+   
     shuffled_X = files_name_train_all[permutation]
     shuffled_Y = labels_train_all[permutation]
 
-    #files_name_eval = df_eval_map['Fname'].values
-    #labels_eval= df_eval_map.loc[:,label_columns].values
     files_name_train = shuffled_X[0:20000]
     labels_train =  shuffled_Y[0:20000]
 
     files_name_eval = shuffled_X[20000:]
     labels_eval = shuffled_Y[20000:]
 
-
     return files_name_train,labels_train,files_name_eval,labels_eval
 
 def random_mini_batches_files(X, Y, mini_batch_size = 64, seed = 0 , shuffle=True):
-    """
-    Creates a list of random minibatches from (X, Y)
-    
-    It will product list of filename as minibatch
-    
-    Arguments:
-    X -- input data, of shape (input size, number of examples)
-    Y -- true "label" vector (1 for blue dot / 0 for red dot),
-         of shape (1, number of examples)
-    mini_batch_size -- size of the mini-batches, integer
-    
-    Returns:
-    mini_batches -- list of synchronous (mini_batch_X, mini_batch_Y)
-    """
-    
-    # To make your "random" minibatches the same as ours
+    '''
+        Creates a list of random minibatches from (X, Y)
+        
+        It will product list of filename as minibatch
+        
+            Args:
+                X : list of filenames
+                Y : ground true label
+                mini_batch_size : size of the mini-batches
+                seed : random seed to generate the different list of filename in each epoch.
+                shuffle : shuffle the data or not
 
-    # number of training examples
+            Return:
+                mini_batches : list of synchronous (mini_batch_X, mini_batch_Y)
+    '''
+    #ref https://www.kaggle.com/darienbm/wine-classification-using-tensorflow
+    
     m = X.shape[0]
     mini_batches = []
     
     if(shuffle==True):
-        # Step 1: Shuffle (X, Y)
+    # Step 1: Shuffle (X, Y)
         np.random.seed(seed)
         permutation = list(np.random.permutation(m))
-        #print(permutation)
-        #print(np.shape(permutation))
 
         shuffled_X = X[permutation]
         shuffled_Y = Y[permutation, :]
 
-        #print(np.shape(shuffled_X))
-        #print(np.shape(shuffled_Y))
     
     elif(shuffle==False):
         shuffled_X = X
@@ -239,7 +215,7 @@ def random_mini_batches_files(X, Y, mini_batch_size = 64, seed = 0 , shuffle=Tru
         mini_batch = (mini_batch_X, mini_batch_Y)
         mini_batches.append(mini_batch)
 
-        # Handling the end case (last mini-batch < mini_batch_size)
+    # Handling the end case (last mini-batch < mini_batch_size)
     if m % mini_batch_size != 0:
         mini_batch_X = shuffled_X[num_complete_minibatches*mini_batch_size : m]
         mini_batch_Y = shuffled_Y[num_complete_minibatches*mini_batch_size : m, :]
@@ -248,18 +224,17 @@ def random_mini_batches_files(X, Y, mini_batch_size = 64, seed = 0 , shuffle=Tru
 
     return mini_batches
 
-# Read the list of file names from minibatch and preprocessing then return as list of example frame and 
-# associated labels
-
 def data_augmentation(file_name,seed):
-    #input_file = '/export/home/2368985c/MSc_Project_Sound_Augmentation/audio_train_tmp/2/1/L/21L0pyts9WI_530000_540000.flac'
+
+    '''
+        Applying 7 random parameters from 5 filters and 3 type of audios to generate the artificial audio files 
+        in order to training the augmentation model.
+    '''
+
     input_file = file_name
-    #print('input: ',input_file) 
-    #print('seed aug: ',seed)
-    
     output_aug_dir = './audio_aug/'
     
-    #random parameters
+    # random parameters
     rd.seed(seed)
     volume_rd = rd.randint(1, 10)
     threshold_rd = rd.uniform(0.5,0.8)
@@ -268,42 +243,23 @@ def data_augmentation(file_name,seed):
     release_rd = rd.randint(10, 250)
     decays_rd =rd.uniform(0.5,1)
     format_type = rd.randint(0,2)
-    libro_parm = rd.uniform(0.8,1.5)
 
-
-    #print(volume_rd)
-    #print(threshold_rd)
-    #print(ratio_rd)
-    #print(attack_rd)
-    #print(release_rd)
-    #print(decays_rd)
-    #print('format_type: ',format_type) 
-    
-    #FLAC format
+    # FLAC format
     if(format_type==0):
         file_name_aug = output_aug_dir + input_file.split('/')[-1]
         acodec_rd='flac'
-        #print('flac')
 
-    #OGG format    
+    # AAC format    
     elif(format_type==1):
-        #file_name_aug = output_aug_dir + input_file.split('/')[-1].replace('000.flac','000_aac.aac')
         file_name_aug = output_aug_dir + input_file.split('/')[-1].replace('000.flac','000.aac')
         acodec_rd='aac'
-        #print('aac')
 
-    #MP3 format    
+    # MP3 format    
     elif(format_type==2):
-        #file_name_aug = output_aug_dir + input_file.split('/')[-1].replace('000.flac','000_mp3.mp3')
         file_name_aug = output_aug_dir + input_file.split('/')[-1].replace('000.flac','000.mp3')
         acodec_rd='mp3'  
-        #print('mp3')
- 
-
-    #file_name_aug = file_name_aug.replace('audio_train_tmp','audio_augment')    
-
-    #print('step1 filename: ',file_name_aug)
     
+    # augmentation pipeline
     ffmpeg_proc = (ffmpeg
             .input(input_file)  
             .filter(filter_name='volume',volume=volume_rd)
@@ -316,8 +272,8 @@ def data_augmentation(file_name,seed):
             .run(quiet=True)
             )
     
-    #librosa can read more format!
-    #'''
+    # convert file types from AAC to FLAC due to SoundFile library does not support to read AAC format. 
+
     if(format_type==1):
 
         file_name_aug_flac = file_name_aug.replace('.aac','.flac')
@@ -329,7 +285,8 @@ def data_augmentation(file_name,seed):
             .run(quiet=True)
         )
         file_name_aug = file_name_aug_flac
-        #print('in aac')
+
+    # convert file types from MP3 to FLAC due to SoundFile library does not support to read MP3 format.     
             
     if(format_type==2):
 
@@ -342,17 +299,16 @@ def data_augmentation(file_name,seed):
             .run(quiet=True)
         )
         file_name_aug = file_name_aug_flac
-        #print('in mp3')
-    
-    #print('final file name to return: ', file_name_aug)  
-    #print('=========================') 
-    #'''
+
     return file_name_aug
 
 def get_train_data(minibatch_file,sess_ext,input_tensor,output_tensor,pproc,is_train,seed=0,is_augment=False):
     
-    #print('in get train data')
-    #print('is_augment: ',is_augment)
+    '''
+        Read the list of file names from minibatch and perform preprocessing 
+        then return as list of example frame and associated labels
+    '''
+
     files_name,labels_name = minibatch_file  
     all_examples=[]
     all_labels=[]   
@@ -361,12 +317,9 @@ def get_train_data(minibatch_file,sess_ext,input_tensor,output_tensor,pproc,is_t
     for file_name in files_name:
 
         try:    
-            #print(file_name) 
-            data, sampleratde = sf.read(Path(file_name))  #change from soundfile to librosa      
-            #data, sampleratde = librosa.load(Path(file_name),sr=16000,dtype=np.float64)     
-             
-            #print(file_name) 
-             
+
+            data, sampleratde = sf.read(Path(file_name))   
+           
             wave_arrays_pre = data_transformation.waveform_to_examples(data,sampleratde,0)
             
             [embedding_batch] = sess_ext.run([output_tensor],
@@ -379,20 +332,16 @@ def get_train_data(minibatch_file,sess_ext,input_tensor,output_tensor,pproc,is_t
                 all_examples.append(wave_arrays)
                 all_labels.append(wave_labels)
 
+                '''
+                    This is a data augmentation function to generate artificial audio file
+                    for each file.
+                '''
+
                 if(is_augment == True):
-                    #print('in loop augment')
-                    #add augmentation step here!!!
-                    #print('seed: ',seed)
+
                     file_name_aug = data_augmentation(file_name,seed)
-                    #print('file_name1:',file_name_aug)
-                    #print('file_name_aug in get:', file_name_aug)
-                    
-                    data, sampleratde = sf.read(Path(file_name_aug))  #change from soundfile to librosa         
-                    #data, sampleratde = librosa.load(Path(file_name_aug),sr=16000,dtype=np.float64) 
-                    
-                    #add more techniques
-                    #data = librosa.effects.pitch_shift(data, 16000, n_steps=1.5) #0.8-1.5
-                    #data = librosa.effects.time_stretch(data, 1.5) #0.8-1.5
+
+                    data, sampleratde = sf.read(Path(file_name_aug))       
                     
                     wave_arrays_pre = data_transformation.waveform_to_examples(data,sampleratde,0)
   
@@ -405,17 +354,10 @@ def get_train_data(minibatch_file,sess_ext,input_tensor,output_tensor,pproc,is_t
                         wave_labels = np.array([labels_name[no_file]] * wave_arrays.shape[0])      
                         all_examples.append(wave_arrays)
                         all_labels.append(wave_labels)
-                        #print('!!!!!!!!!!!!!!!!!!!!!in loop aug!!!!!gen')
-                        #print('file_name2:',file_name_aug)
-                        #print(np.where(wave_labels[0]==1))
-                        #print('file augmented = 1')
                     
                     seed = seed+1        
-
                   
         except:
-            #print ("The referred audio file is not available")
-            #print(file_name)
             pass
                        
         no_file = no_file+1
@@ -424,19 +366,17 @@ def get_train_data(minibatch_file,sess_ext,input_tensor,output_tensor,pproc,is_t
     all_labels = np.concatenate(all_labels)
 
     if(is_train==True):
-        #print('return is train')
         labeled_examples = list(zip(all_examples, all_labels))
         shuffle(labeled_examples)
+
         #Separate and return the features and labels.
+        
         features = [example for (example, _) in labeled_examples]
         labels = [label for (_, label) in labeled_examples]
         return (features, labels)
     
     elif(is_train==False):
         return (all_examples, all_labels)
-
-    #return (all_examples, all_labels)
-        
 
 def create_folder(fd):
     if not os.path.exists(fd):

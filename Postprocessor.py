@@ -1,6 +1,8 @@
 import vggish_params
 import numpy as np
 
+#ref https://github.com/tensorflow/models/blob/master/research/audioset/vggish/vggish_postprocess.py
+
 class Postprocessor(object):
   """Post-processes VGGish embeddings.
   The initial release of AudioSet included 128-D VGGish embeddings for each
